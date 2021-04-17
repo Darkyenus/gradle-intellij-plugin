@@ -28,7 +28,7 @@ class JbrResolver {
 
     @Nullable
     Jbr resolve(@Nullable String version) {
-        if (version == null) {
+        if (version == null || version.isEmpty()) {
             return null
         }
         def jbrArtifact = JbrArtifact.from(version.startsWith('u') ? "8$version" : version, operatingSystem)
@@ -66,6 +66,12 @@ class JbrResolver {
         if (javaArchive.exists()) {
             return javaArchive
         }
+
+        if (project.gradle.startParameter.offline) {
+            Utils.warn(context, "Cannot download JetBrains Java Runtime $artifactName. Gradle runs in offline mode.")
+            return null
+        }
+
         def intellijExtension = project.extensions.findByType(IntelliJPluginExtension)
         def repo = intellijExtension != null ? intellijExtension.jreRepo : null
         def url = "${repo ?: jbrArtifact.repoUrl}/$archiveName"
@@ -124,19 +130,22 @@ class JbrResolver {
             def buildNumber = VersionNumber.parse(buildNumberString)
             def isJava8 = majorVersion.startsWith('8')
 
-            String repoUrl = !isJava8 || buildNumber >= VersionNumber.parse('1483.31')
-                    ? IntelliJPlugin.DEFAULT_NEW_JBR_REPO
-                    : IntelliJPlugin.DEFAULT_JBR_REPO
-
+            String repoUrl = IntelliJPlugin.DEFAULT_JBR_REPO
             boolean oldFormat = prefix == 'jbrex' || isJava8 && buildNumber < VersionNumber.parse('1483.24')
             if (oldFormat) {
                 return new JbrArtifact("jbrex${majorVersion}b${buildNumberString}_${platform(operatingSystem)}_${arch(false)}", repoUrl)
             }
 
             if (!prefix) {
-                prefix = isJava8 ? "jbrx-" : "jbr-"
+                if (isJava8) {
+                    prefix = "jbrx-"
+                } else if (buildNumber < VersionNumber.parse('1319.6')) {
+                    prefix = "jbr-"
+                } else {
+                    prefix = "jbr_jcef-"
+                }
             }
-            return new JbrArtifact("$prefix${majorVersion}-${platform(operatingSystem)}-${arch(true)}-b${buildNumberString}", repoUrl)
+            return new JbrArtifact("$prefix${majorVersion}-${platform(operatingSystem)}-${arch(isJava8)}-b${buildNumberString}", repoUrl)
         }
 
         private static String getPrefix(String version) {
@@ -167,7 +176,17 @@ class JbrResolver {
 
         private static def arch(boolean newFormat) {
             def arch = System.getProperty("os.arch")
-            return 'x86' == arch ? (newFormat ? 'i586' : 'x86') : 'x64'
+            if ('aarch64' == arch || 'arm64' == arch) {
+                return 'aarch64'
+            }
+            if ('x86_64' == arch || 'amd64' == arch) {
+                return 'x64'
+            }
+            def name = System.getProperty("os.name")
+            if (name.contains("Windows") && System.getenv("ProgramFiles(x86)") != null) {
+                return 'x64'
+            }
+            return newFormat ? 'i586' : 'x86'
         }
     }
 }

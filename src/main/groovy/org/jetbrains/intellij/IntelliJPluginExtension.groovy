@@ -29,7 +29,7 @@ class IntelliJPluginExtension {
     /**
      * The version of the IntelliJ Platform IDE that will be used to build the plugin.
      * <p/>
-     * Please see <a href="https://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html">Plugin Compatibility</a> in SDK docs for more details.
+     * Please see <a href="https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html">Plugin Compatibility</a> in SDK docs for more details.
      */
     String version
 
@@ -73,7 +73,7 @@ class IntelliJPluginExtension {
      * The path of sandbox directory that is used for running IDE with developing plugin.
      * By default: <code>${project.buildDir}/idea-sandbox</code>.
      */
-    String sandboxDirectory
+    Object sandboxDirectory
 
     /**
      * Url of repository for downloading IDE distributions.
@@ -166,6 +166,8 @@ class IntelliJPluginExtension {
             return 'PC'
         } else if (version.startsWith('RD-') || 'RD' == type) {
             return 'RD'
+        } else if (version.startsWith('GO-') || 'GO' == type) {
+            return 'GO'
         } else {
             return 'IC'
         }
@@ -180,7 +182,7 @@ class IntelliJPluginExtension {
         }
         if (version.startsWith('IU-') || version.startsWith('IC-') ||
                 version.startsWith('RD-') || version.startsWith('CL-')
-                || version.startsWith('PY-') || version.startsWith('PC-')) {
+                || version.startsWith('PY-') || version.startsWith('PC-') || version.startsWith('GO-')) {
             return version.substring(3)
         }
         return version

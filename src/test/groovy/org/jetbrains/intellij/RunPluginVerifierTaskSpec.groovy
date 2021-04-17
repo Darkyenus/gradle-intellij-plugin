@@ -1,7 +1,6 @@
 package org.jetbrains.intellij
 
-import de.undercouch.gradle.tasks.download.DownloadAction
-import groovy.json.JsonSlurper
+import org.jetbrains.intellij.tasks.RunPluginVerifierTask
 
 class RunPluginVerifierTaskSpec extends IntelliJPluginSpecBase {
     def 'run plugin verifier in specified version'() {
@@ -12,7 +11,7 @@ class RunPluginVerifierTaskSpec extends IntelliJPluginSpecBase {
             
             runPluginVerifier {
                 ideVersions = "2020.2.3"
-                verifierVersion = "1.241"
+                verifierVersion = "1.255"
             }
             """.stripIndent()
 
@@ -20,7 +19,26 @@ class RunPluginVerifierTaskSpec extends IntelliJPluginSpecBase {
         def result = build(IntelliJPlugin.RUN_PLUGIN_VERIFIER_TASK_NAME)
 
         then:
-        result.output.contains("Starting the IntelliJ Plugin Verifier 1.241")
+        result.output.contains("Starting the IntelliJ Plugin Verifier 1.255")
+    }
+
+    def 'run plugin verifier in old version hosted on Bintray'() {
+        given:
+        writePluginXmlFile()
+        buildFile << """
+            version = "1.0.0"
+            
+            runPluginVerifier {
+                ideVersions = "2020.2.3"
+                verifierVersion = "1.254"
+            }
+            """.stripIndent()
+
+        when:
+        def result = build(IntelliJPlugin.RUN_PLUGIN_VERIFIER_TASK_NAME)
+
+        then:
+        result.output.contains("Starting the IntelliJ Plugin Verifier 1.254")
     }
 
     def 'run plugin verifier in the latest version'() {
@@ -38,8 +56,7 @@ class RunPluginVerifierTaskSpec extends IntelliJPluginSpecBase {
         def result = build(IntelliJPlugin.RUN_PLUGIN_VERIFIER_TASK_NAME)
 
         then:
-        def url = new URL("https://api.bintray.com/packages/jetbrains/intellij-plugin-service/intellij-plugin-verifier/versions/_latest")
-        def version = new JsonSlurper().parse(url)["name"]
+        def version = RunPluginVerifierTask.resolveLatestVerifierVersion()
         result.output.contains("Starting the IntelliJ Plugin Verifier $version")
     }
 
@@ -238,11 +255,10 @@ class RunPluginVerifierTaskSpec extends IntelliJPluginSpecBase {
             """.stripIndent()
 
         when:
-        def url = new URL("https://api.bintray.com/packages/jetbrains/intellij-plugin-service/intellij-plugin-verifier/versions/_latest")
-        def version = new JsonSlurper().parse(url)["name"]
+        def version = RunPluginVerifierTask.resolveLatestVerifierVersion()
 
         file("build/pluginVerifier.jar").withOutputStream { out ->
-            out << new URL("https://dl.bintray.com/jetbrains/intellij-plugin-service/org/jetbrains/intellij/plugins/verifier-cli/$version/verifier-cli-$version-all.jar").openStream()
+            out << new URL("${IntelliJPlugin.DEFAULT_INTELLIJ_PLUGIN_VERIFIER_REPO}/org/jetbrains/intellij/plugins/verifier-cli/$version/verifier-cli-$version-all.jar").openStream()
         }
 
         def result = buildAndFail(IntelliJPlugin.RUN_PLUGIN_VERIFIER_TASK_NAME, "--offline")

@@ -1,10 +1,11 @@
 plugins {
     groovy
-    id("com.gradle.plugin-publish") version "0.12.0"
+    id("com.gradle.plugin-publish") version "0.14.0"
     id("synapticloop.documentr") version "3.1.0"
     `java-gradle-plugin`
     `maven-publish`
     id("com.github.breadmoirai.github-release") version "2.2.9"
+    id("org.jetbrains.changelog") version "1.1.1"
 }
 
 plugins.withType<JavaPlugin> {
@@ -15,17 +16,17 @@ plugins.withType<JavaPlugin> {
 }
 
 repositories {
-    maven("https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-plugin-service")
+    maven("https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/intellij-plugin-verifier/intellij-plugin-structure")
+    maven("https://cache-redirector.jetbrains.com/intellij-dependencies")
     maven("https://cache-redirector.jetbrains.com/repo1.maven.org/maven2")
-    maven("https://cache-redirector.jetbrains.com/jcenter.bintray.com")
 }
 
 dependencies {
     implementation(localGroovy())
     api(gradleApi())
     implementation("org.jetbrains:annotations:19.0.0")
-    implementation("org.jetbrains.intellij.plugins:structure-base:3.139")
-    implementation("org.jetbrains.intellij.plugins:structure-intellij:3.139")
+    implementation("org.jetbrains.intellij.plugins:structure-base:3.169")
+    implementation("org.jetbrains.intellij.plugins:structure-intellij:3.169")
     // should be changed together with plugin-repository-rest-client
     implementation("org.jetbrains.intellij:blockmap:1.0.5") {
         exclude(group = "org.jetbrains.kotlin")
@@ -160,26 +161,24 @@ publishing {
 }
 
 tasks.wrapper {
-    gradleVersion = "6.6.1"
+    gradleVersion = "6.8"
     distributionUrl = "https://cache-redirector.jetbrains.com/services.gradle.org/distributions/gradle-${gradleVersion}-all.zip"
 }
 
+changelog {
+    version = "${project.version}"
+    path = "${project.projectDir}/CHANGES.md"
+}
+
 githubRelease {
+    val releaseNote = if (changelog.has("${project.version}")) {
+        changelog.get("${project.version}").toText()
+    } else {
+        ""
+    }
+
     setToken(project.property("githubToken") as String)
     owner.set("jetbrains")
     repo.set("gradle-intellij-plugin")
-    body.set(extractChanges().trim())
-}
-
-fun extractChanges(): String {
-    val currentVersionTitle = "## ${project.version}"
-    val changes = file("CHANGES.md").readText()
-    val startOffset = changes.indexOf(currentVersionTitle) + currentVersionTitle.length
-    if (startOffset == -1) return ""
-    val endOffset = changes.indexOf("\n## ", startOffset)
-    return if (endOffset >= 0) {
-        changes.substring(startOffset, endOffset)
-    } else {
-        changes.substring(startOffset)
-    }
+    body.set(releaseNote)
 }

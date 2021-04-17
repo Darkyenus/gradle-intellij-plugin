@@ -208,9 +208,24 @@ class IntelliJPluginSpec extends IntelliJPluginSpecBase {
 
         then:
         assert compileClasspath.contains('vcs-changeReminder.jar')
-        assert !runtimeClasspath.contains('vcs-changeReminder.jar')
+        assert runtimeClasspath.contains('vcs-changeReminder.jar')
         assert compileClasspath.contains('git4idea.jar')
-        assert !runtimeClasspath.contains('git4idea.jar')
+        assert runtimeClasspath.contains('git4idea.jar')
+    }
+
+    def 'add ant dependencies to classpath'() {
+        given:
+        buildFile << 'task printTestRuntimeClassPath { doLast { println \'runtime: \' + sourceSets.test.runtimeClasspath.asPath } }\n'
+        buildFile << 'task printTestCompileClassPath { doLast { println \'compile: \' + sourceSets.test.compileClasspath.asPath } }\n'
+
+        when:
+        def result = build('printTestRuntimeClassPath', 'printTestCompileClassPath')
+        def compileClasspath = result.output.readLines().find { it.startsWith('compile:') }
+        def runtimeClasspath = result.output.readLines().find { it.startsWith('runtime:') }
+
+        then:
+        assert compileClasspath.contains('ant.jar')
+        assert runtimeClasspath.contains('ant.jar')
     }
 
     def 'use test compile classpath for non-builtin plugins if Gradle >= 2.12'() {
@@ -227,9 +242,9 @@ class IntelliJPluginSpec extends IntelliJPluginSpecBase {
 
         then:
         assert compileClasspath.contains('copyright.jar')
-        assert !runtimeClasspath.contains('copyright.jar')
+        assert runtimeClasspath.contains('copyright.jar')
         assert compileClasspath.contains('org.jetbrains.postfixCompletion-0.8-beta.jar')
-        assert !runtimeClasspath.contains('org.jetbrains.postfixCompletion-0.8-beta.jar')
+        assert runtimeClasspath.contains('org.jetbrains.postfixCompletion-0.8-beta.jar')
     }
 
     def 'resolve plugins in Gradle >= 4.3'() {

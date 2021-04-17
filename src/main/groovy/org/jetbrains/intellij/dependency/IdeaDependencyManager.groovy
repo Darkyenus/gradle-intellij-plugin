@@ -44,6 +44,9 @@ class IdeaDependencyManager {
         } else if (type == 'PY' || type == 'PC') {
             dependencyGroup = 'com.jetbrains.intellij.pycharm'
             dependencyName = 'pycharm' + type
+        } else if (type == 'GO') {
+            dependencyGroup = 'com.jetbrains.intellij.goland'
+            dependencyName = 'goland'
         } else if (type == 'RD') {
             dependencyGroup = 'com.jetbrains.intellij.rider'
             dependencyName = 'riderRD'
@@ -94,7 +97,10 @@ class IdeaDependencyManager {
     }
 
     static boolean isKotlinRuntime(name) {
-        return 'kotlin-runtime' == name || 'kotlin-reflect' == name || name.startsWith('kotlin-stdlib')
+        return 'kotlin-runtime' == name ||
+            name == 'kotlin-reflect' || name.startsWith('kotlin-reflect-') ||
+            name == 'kotlin-stdlib' || name.startsWith('kotlin-stdlib-') ||
+            name == 'kotlin-test' || name.startsWith('kotlin-test-')
     }
 
     @NotNull

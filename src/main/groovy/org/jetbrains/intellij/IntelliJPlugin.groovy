@@ -1,6 +1,6 @@
 package org.jetbrains.intellij
 
-import com.jetbrains.plugin.structure.intellij.version.IdeVersion
+import com.jetbrains.plugin.structure.intellij.version.*
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
 import org.gradle.api.Project
@@ -60,9 +60,9 @@ class IntelliJPlugin implements Plugin<Project> {
     public static final Logger LOG = Logging.getLogger(IntelliJPlugin)
     public static final String DEFAULT_IDEA_VERSION = "LATEST-EAP-SNAPSHOT"
     public static final String DEFAULT_INTELLIJ_REPO = 'https://cache-redirector.jetbrains.com/www.jetbrains.com/intellij-repository'
-    public static final String DEFAULT_JBR_REPO = 'https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-jdk'
-    public static final String DEFAULT_NEW_JBR_REPO = 'https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-jbr'
-    public static final String DEFAULT_INTELLIJ_PLUGIN_SERVICE = 'https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-plugin-service'
+    public static final String DEFAULT_JBR_REPO = 'https://cache-redirector.jetbrains.com/intellij-jbr'
+    public static final String DEFAULT_INTELLIJ_PLUGIN_VERIFIER_REPO = 'https://cache-redirector.jetbrains.com/packages.jetbrains.team/maven/p/intellij-plugin-verifier/intellij-plugin-verifier'
+    public static final String OLD_INTELLIJ_PLUGIN_VERIFIER_REPO = 'https://cache-redirector.jetbrains.com/jetbrains.bintray.com/intellij-plugin-service'
     public static final String DEFAULT_INTELLIJ_PLUGINS_REPO = 'https://cache-redirector.jetbrains.com/plugins.jetbrains.com/maven'
     public static final String PLUGIN_PATH = 'plugin.path'
 
@@ -74,7 +74,7 @@ class IntelliJPlugin implements Plugin<Project> {
         intellijExtension.with {
             extensionProject = project
             pluginName = project.name
-            sandboxDirectory = new File(project.buildDir, DEFAULT_SANDBOX).absolutePath
+            sandboxDirectory = { new File(project.buildDir, DEFAULT_SANDBOX).absolutePath }
         }
         configureConfigurations(project, intellijExtension)
         configureTasks(project, intellijExtension)
@@ -99,8 +99,7 @@ class IntelliJPlugin implements Plugin<Project> {
         }
 
         project.configurations.getByName(JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME).extendsFrom defaultDependencies, idea, ideaPlugins
-        project.configurations.getByName(JavaPlugin.TEST_COMPILE_ONLY_CONFIGURATION_NAME).extendsFrom ideaPlugins
-        project.configurations.getByName(JavaPlugin.TEST_IMPLEMENTATION_CONFIGURATION_NAME).extendsFrom defaultDependencies, idea
+        project.configurations.getByName(JavaPlugin.TEST_IMPLEMENTATION_CONFIGURATION_NAME).extendsFrom defaultDependencies, idea, ideaPlugins
     }
 
     private static def configureTasks(@NotNull Project project, @NotNull IntelliJPluginExtension extension) {
@@ -411,8 +410,8 @@ class IntelliJPlugin implements Plugin<Project> {
                         ? (project.tasks.findByName(JavaPlugin.JAR_TASK_NAME) as Jar).archiveFile.getOrNull()?.getAsFile()
                         : (project.tasks.findByName(JavaPlugin.JAR_TASK_NAME) as Jar).archivePath
             })
-            conventionMapping('destinationDir', { project.file("${extension.sandboxDirectory}/plugins$testSuffix") })
-            conventionMapping('configDirectory', { "${extension.sandboxDirectory}/config$testSuffix".toString() })
+            conventionMapping('destinationDir', { project.file("${Utils.stringInput(extension.sandboxDirectory)}/plugins$testSuffix") })
+            conventionMapping('configDirectory', { "${Utils.stringInput(extension.sandboxDirectory)}/config$testSuffix".toString() })
             conventionMapping('librariesToIgnore', { project.files(extension.ideaDependency.jarFiles) })
             conventionMapping('pluginDependencies', { extension.pluginDependencies })
             dependsOn(JavaPlugin.JAR_TASK_NAME)
@@ -488,7 +487,7 @@ class IntelliJPlugin implements Plugin<Project> {
         task.conventionMapping("configDirectory", { project.file(prepareSandboxTask.getConfigDirectory()) })
         task.conventionMapping("pluginsDirectory", { prepareSandboxTask.getDestinationDir() })
         task.conventionMapping("systemDirectory", {
-            project.file("${extension.sandboxDirectory}/system")
+            project.file("${Utils.stringInput(extension.sandboxDirectory)}/system")
         })
         task.conventionMapping("autoReloadPlugins", {
             def number = Utils.ideBuildNumber(Utils.ideSdkDirectory(project, extension))
@@ -551,8 +550,8 @@ class IntelliJPlugin implements Plugin<Project> {
                 dependsOn sourceSet.classesTaskName
                 onlyIf { extension.instrumentCode }
                 conventionMapping('compilerVersion', {
-                    def version = extension.version
-                    if (version && version.endsWith('-SNAPSHOT')) {
+                    def version = extension.version ?: DEFAULT_IDEA_VERSION
+                    if (!extension.localPath && version && version.endsWith('-SNAPSHOT')) {
                         if (extension.type == 'CL') {
                             return "CLION-$version".toString()
                         }
@@ -600,9 +599,9 @@ class IntelliJPlugin implements Plugin<Project> {
     private static void configureTestTasks(@NotNull Project project, @NotNull IntelliJPluginExtension extension) {
         Utils.info(project, "Configuring tests tasks")
         project.tasks.withType(Test).each { task ->
-            def configDirectory = project.file("${extension.sandboxDirectory}/config-test")
-            def systemDirectory = project.file("${extension.sandboxDirectory}/system-test")
-            def pluginsDirectory = project.file("${extension.sandboxDirectory}/plugins-test")
+            def configDirectory = project.file("${Utils.stringInput(extension.sandboxDirectory)}/config-test")
+            def systemDirectory = project.file("${Utils.stringInput(extension.sandboxDirectory)}/system-test")
+            def pluginsDirectory = project.file("${Utils.stringInput(extension.sandboxDirectory)}/plugins-test")
             task.enableAssertions = true
             def pluginIds = Utils.getPluginIds(project)
             task.systemProperties(Utils.getIdeaSystemProperties(configDirectory, systemDirectory, pluginsDirectory, pluginIds))
